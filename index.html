@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Loose Change Arcade: a small free arcade with a playable Snake game and a shelf of upcoming games.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Loose Change Arcade</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@400;500;700&family=VT323&display=swap">
+<style>
+/* Layout: left-aligned hero with the playable cabinet on the right, then a filterable game shelf and a score table side by side. Single committed dark look, like a cabinet in a dim room. */
+:root {
+  --bg: #0f1a21;
+  --panel: #172630;
+  --screen: #0a1217;
+  --line: #2a3f4c;
+  --ink: #f3ebdd;
+  --muted: #9fb3bf;
+  --red: #ff5a36;
+  --yellow: #ffd23f;
+  --mint: #4be3a0;
+  --f-display: 'Bungee', Impact, 'Arial Black', sans-serif;
+  --f-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'VT323', ui-monospace, 'Courier New', monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.55;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 72px; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-size: 20px; letter-spacing: .02em; text-decoration: none; }
+.nav { display: flex; gap: 20px; font-weight: 500; }
+.nav a { text-decoration: none; color: var(--muted); padding: 4px 0; border-bottom: 2px solid transparent; }
+.nav a:hover { color: var(--ink); border-color: var(--red); }
+
+/* hero */
+.hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: center; }
+.hero > * { min-width: 0; }
+.eyebrow { font-family: var(--f-mono); font-size: 22px; color: var(--yellow); letter-spacing: .08em; text-transform: uppercase; margin: 0 0 8px; }
+h1 { font-family: var(--f-display); font-weight: 400; font-size: clamp(38px, 6.4vw, 72px); line-height: 1; margin: 0 0 20px; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--red); }
+.lede { color: var(--muted); font-size: 18px; max-width: 46ch; margin: 0 0 24px; }
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 6px; padding: 12px 20px; font-weight: 700; text-decoration: none; display: inline-block; }
+.btn-primary { background: var(--red); color: #1a0a05; box-shadow: 0 4px 0 #9c2f14; }
+.btn-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #9c2f14; }
+.btn-ghost { background: transparent; border: 2px solid var(--line); color: var(--ink); }
+.btn-ghost:hover { border-color: var(--yellow); }
+
+/* cabinet */
+.cabinet { background: var(--panel); border: 3px solid var(--line); border-top: 10px solid var(--red); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.hud { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 26px; line-height: 1; letter-spacing: .06em; }
+.hud b { font-weight: 400; color: var(--mint); }
+.screen { position: relative; border: 4px solid #05090c; border-radius: 6px; background: var(--screen); touch-action: none; }
+canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; border-radius: 2px; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; background: rgba(10, 18, 23, .86); padding: 16px; }
+.overlay[hidden] { display: none; }
+.overlay h2 { font-family: var(--f-display); font-weight: 400; font-size: 28px; margin: 0; color: var(--yellow); }
+.overlay p { margin: 0; font-family: var(--f-mono); font-size: 22px; color: var(--muted); }
+.pad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 44px); gap: 6px; justify-content: center; }
+.pad button { background: #0a1217; border: 2px solid var(--line); border-radius: 6px; font-size: 18px; line-height: 1; }
+.pad button:active { border-color: var(--yellow); background: #12212a; }
+.pad .up { grid-column: 2; grid-row: 1; }
+.pad .left { grid-column: 1; grid-row: 2; }
+.pad .down { grid-column: 2; grid-row: 2; }
+.pad .right { grid-column: 3; grid-row: 2; }
+.hint { margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
+
+/* section heads */
+.sec-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+h2.title { font-family: var(--f-display); font-weight: 400; font-size: clamp(28px, 4vw, 40px); line-height: 1.05; margin: 0; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 52ch; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { background: transparent; border: 2px solid var(--line); border-radius: 999px; padding: 6px 14px; font-weight: 500; font-size: 14px; }
+.chip[aria-pressed="true"] { background: var(--yellow); border-color: var(--yellow); color: #231a00; }
+
+/* shelf */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+.card { background: var(--panel); border: 2px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.card svg { display: block; width: 100%; height: auto; }
+.card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.card h3 { font-family: var(--f-display); font-weight: 400; font-size: 20px; margin: 0; line-height: 1.1; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-family: var(--f-mono); font-size: 20px; color: var(--muted); line-height: 1.1; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.card-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 4px; }
+.tag { font-family: var(--f-mono); font-size: 18px; color: var(--yellow); letter-spacing: .06em; text-transform: uppercase; }
+.wish { background: transparent; border: 2px solid var(--line); border-radius: 6px; padding: 6px 12px; font-size: 14px; font-weight: 500; }
+.wish[aria-pressed="true"] { border-color: var(--mint); color: var(--mint); }
+.empty { color: var(--muted); }
+
+/* scores */
+.scores-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+.scores-layout > * { min-width: 0; }
+.table-wrap { overflow-x: auto; border: 2px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 24px; }
+th, td { text-align: left; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 400; font-size: 18px; letter-spacing: .1em; text-transform: uppercase; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: 0; }
+tr.you td { color: var(--mint); background: rgba(75, 227, 160, .08); }
+.note { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.rules { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.rules li { display: grid; grid-template-columns: 110px 1fr; gap: 12px; }
+.rules strong { font-family: var(--f-mono); font-weight: 400; font-size: 22px; color: var(--yellow); letter-spacing: .06em; text-transform: uppercase; line-height: 1.3; }
+.rules span { color: var(--muted); }
+
+footer { border-top: 2px solid var(--line); padding-top: 20px; color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 860px) {
+  .hero, .scores-layout { grid-template-columns: 1fr; }
+  .wrap { gap: 56px; }
+}
+@media (max-width: 420px) {
+  .rules li { grid-template-columns: 1fr; gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:active { transform: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top" aria-label="Loose Change Arcade home">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="#ffd23f" stroke="#c79a00" stroke-width="2"/><rect x="13" y="7" width="4" height="16" rx="1" fill="#c79a00"/></svg>
+      <span>Loose Change</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#games">Games</a>
+      <a href="#scores">High scores</a>
+      <a href="#house-rules">House rules</a>
+    </nav>
+  </header>
+
+  <section class="hero" id="top">
+    <div>
+      <p class="eyebrow">Free to play · No coins needed</p>
+      <h1>Insert nothing. <em>Lose an afternoon.</em></h1>
+      <p class="lede">A tiny arcade for short runs and long grudges. Play Snake on the cabinet right now, then browse what is coming to the shelf.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#cabinet" id="playNow">Play Snake</a>
+        <a class="btn btn-ghost" href="#games">See the shelf</a>
+      </div>
+    </div>
+
+    <div class="cabinet" id="cabinet">
+      <div class="hud" aria-live="polite">
+        <span>SCORE <b id="score">0</b></span>
+        <span>BEST <b id="best">0</b></span>
+      </div>
+      <div class="screen" id="screen">
+        <canvas id="board" width="400" height="400" aria-label="Snake game board"></canvas>
+        <div class="overlay" id="overlay">
+          <h2 id="ovTitle">Snake</h2>
+          <p id="ovText">Eat the yellow squares. Do not eat yourself.</p>
+          <button class="btn btn-primary" id="startBtn" type="button">Start</button>
+        </div>
+      </div>
+      <div class="pad" aria-label="On-screen controls">
+        <button class="up" type="button" data-dir="up" aria-label="Up">&#9650;</button>
+        <button class="left" type="button" data-dir="left" aria-label="Left">&#9664;</button>
+        <button class="down" type="button" data-dir="down" aria-label="Down">&#9660;</button>
+        <button class="right" type="button" data-dir="right" aria-label="Right">&#9654;</button>
+      </div>
+      <p class="hint">Arrow keys or WASD to steer. Space to pause. On a phone, swipe the screen or use the pad.</p>
+    </div>
+  </section>
+
+  <section id="games">
+    <div class="sec-head">
+      <div>
+        <h2 class="title">On the shelf</h2>
+        <p class="sub">Six cabinets in the works. Add the ones you want first to your wishlist.</p>
+      </div>
+      <div class="chips" role="group" aria-label="Filter by players">
+        <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
+        <button class="chip" type="button" data-filter="solo" aria-pressed="false">Solo</button>
+        <button class="chip" type="button" data-filter="multi" aria-pressed="false">2+ players</button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section id="scores">
+    <div class="sec-head">
+      <div>
+        <h2 class="title">High scores</h2>
+        <p class="sub">Snake, ranked by apples eaten.</p>
+      </div>
+    </div>
+    <div class="scores-layout">
+      <div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Player</th><th class="num">Score</th></tr></thead>
+            <tbody id="board-rows"></tbody>
+          </table>
+        </div>
+        <p class="note">Other names are sample scores. Your best is saved on this device only.</p>
+      </div>
+      <div id="house-rules">
+        <h3 class="title" style="font-size:26px;margin-bottom:18px">House rules</h3>
+        <ul class="rules">
+          <li><strong>Walls</strong><span>Touching the edge ends the run. There is no wrapping around.</span></li>
+          <li><strong>Speed</strong><span>Every apple makes the snake a little quicker, down to a fixed top speed.</span></li>
+          <li><strong>Pause</strong><span>Press Space any time. Your run waits for you.</span></li>
+          <li><strong>Reverse</strong><span>You cannot turn straight back into your own neck.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Loose Change Arcade is a demo site. Games shown on the shelf are not released.</span>
+    <span>Made for short breaks.</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  /* ---------- storage helpers (per-viewer convenience only) ---------- */
+  function load(key, fallback) {
+    try { var v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; }
+  }
+  function save(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  }
+
+  /* ---------- Snake ---------- */
+  var N = 20;
+  var canvas = document.getElementById('board');
+  var ctx = canvas.getContext('2d');
+  var CELL = canvas.width / N;
+  var scoreEl = document.getElementById('score');
+  var bestEl = document.getElementById('best');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ovTitle');
+  var ovText = document.getElementById('ovText');
+  var startBtn = document.getElementById('startBtn');
+  var cs = getComputedStyle(document.documentElement);
+  function tok(name, fb) { var v = cs.getPropertyValue(name).trim(); return v || fb; }
+  var C = {
+    bg: tok('--screen', '#0a1217'),
+    dot: tok('--line', '#2a3f4c'),
+    snake: tok('--mint', '#4be3a0'),
+    food: tok('--yellow', '#ffd23f'),
+    head: '#c9ffe6'
+  };
+
+  var best = load('lca-best', 0);
+  if (typeof best !== 'number') best = 0;
+  bestEl.textContent = best;
+
+  var snake, dir, queued, food, score, running, paused, over, timer;
+  var DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+  function reset() {
+    snake = [[10, 10], [9, 10], [8, 10]];
+    dir = 'right';
+    queued = [];
+    score = 0;
+    over = false;
+    paused = false;
+    scoreEl.textContent = '0';
+    placeFood();
+    draw();
+  }
+
+  function placeFood() {
+    var free = [];
+    for (var x = 0; x < N; x++) for (var y = 0; y < N; y++) {
+      var taken = false;
+      for (var i = 0; i < snake.length; i++) if (snake[i][0] === x && snake[i][1] === y) { taken = true; break; }
+      if (!taken) free.push([x, y]);
+    }
+    food = free.length ? free[Math.floor(Math.random() * free.length)] : null;
+  }
+
+  function draw() {
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = C.dot;
+    for (var x = 0; x < N; x++) for (var y = 0; y < N; y++) {
+      ctx.fillRect(x * CELL + CELL / 2 - 1, y * CELL + CELL / 2 - 1, 2, 2);
+    }
+    if (food) {
+      ctx.fillStyle = C.food;
+      ctx.fillRect(food[0] * CELL + 4, food[1] * CELL + 4, CELL - 8, CELL - 8);
+    }
+    for (var i = snake.length - 1; i >= 0; i--) {
+      ctx.fillStyle = i === 0 ? C.head : C.snake;
+      ctx.fillRect(snake[i][0] * CELL + 1, snake[i][1] * CELL + 1, CELL - 2, CELL - 2);
+    }
+  }
+
+  function delay() { return Math.max(65, 140 - score * 3); }
+
+  function tick() {
+    if (!running || paused || over) return;
+    if (queued.length) dir = queued.shift();
+    var d = DIRS[dir];
+    var head = [snake[0][0] + d[0], snake[0][1] + d[1]];
+    var hitWall = head[0] < 0 || head[1] < 0 || head[0] >= N || head[1] >= N;
+    var hitSelf = false;
+    for (var i = 0; i < snake.length - 1; i++) if (snake[i][0] === head[0] && snake[i][1] === head[1]) { hitSelf = true; break; }
+    if (hitWall || hitSelf) { gameOver(); return; }
+    snake.unshift(head);
+    if (food && head[0] === food[0] && head[1] === food[1]) {
+      score++;
+      scoreEl.textContent = score;
+      placeFood();
+    } else {
+      snake.pop();
+    }
+    draw();
+    timer = setTimeout(tick, delay());
+  }
+
+  function start() {
+    clearTimeout(timer);
+    reset();
+    running = true;
+    overlay.hidden = true;
+    timer = setTimeout(tick, delay());
+  }
+
+  function gameOver() {
+    running = false;
+    over = true;
+    clearTimeout(timer);
+    var newBest = score > best;
+    if (newBest) { best = score; bestEl.textContent = best; save('lca-best', best); }
+    renderScores();
+    ovTitle.textContent = newBest && score > 0 ? 'New best!' : 'Game over';
+    ovText.textContent = 'You ate ' + score + (score === 1 ? ' apple.' : ' apples.');
+    startBtn.textContent = 'Play again';
+    overlay.hidden = false;
+  }
+
+  function togglePause() {
+    if (!running || over) return;
+    paused = !paused;
+    if (paused) {
+      clearTimeout(timer);
+      ovTitle.textContent = 'Paused';
+      ovText.textContent = 'Press Space or Resume.';
+      startBtn.textContent = 'Resume';
+      overlay.hidden = false;
+    } else {
+      overlay.hidden = true;
+      timer = setTimeout(tick, delay());
+    }
+  }
+
+  function steer(name) {
+    if (!running || paused || over) return;
+    var last = queued.length ? queued[queued.length - 1] : dir;
+    var a = DIRS[last], b = DIRS[name];
+    if (a[0] + b[0] === 0 && a[1] + b[1] === 0) return;
+    if (name === last) return;
+    if (queued.length < 2) queued.push(name);
+  }
+
+  startBtn.addEventListener('click', function () {
+    if (paused) togglePause(); else start();
+  });
+
+  document.getElementById('playNow').addEventListener('click', function () {
+    setTimeout(function () { try { startBtn.focus({ preventScroll: true }); } catch (e) {} }, 300);
+  });
+
+  var KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', a: 'left', s: 'down', d: 'right', W: 'up', A: 'left', S: 'down', D: 'right' };
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (KEYS[e.key]) {
+      if (running && !paused) { e.preventDefault(); steer(KEYS[e.key]); }
+    } else if (e.key === ' ' || e.code === 'Space') {
+      if (running) { e.preventDefault(); togglePause(); }
+    }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.pad button'), function (b) {
+    b.addEventListener('click', function () { steer(b.getAttribute('data-dir')); });
+  });
+
+  var screenEl = document.getElementById('screen');
+  var sx = 0, sy = 0;
+  screenEl.addEventListener('touchstart', function (e) {
+    var t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY;
+  }, { passive: true });
+  screenEl.addEventListener('touchend', function (e) {
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) steer(dx > 0 ? 'right' : 'left'); else steer(dy > 0 ? 'down' : 'up');
+  }, { passive: true });
+
+  reset();
+  overlay.hidden = false;
+
+  /* ---------- High scores ---------- */
+  var SAMPLE = [
+    { n: 'MOT', s: 38 }, { n: 'BRK', s: 31 }, { n: 'JAX', s: 27 },
+    { n: 'PIP', s: 22 }, { n: 'LUX', s: 17 }, { n: 'OWL', s: 12 }, { n: 'ZED', s: 8 }
+  ];
+  function renderScores() {
+    var rows = SAMPLE.map(function (r) { return { n: r.n, s: r.s, you: false }; });
+    if (best > 0) rows.push({ n: 'YOU', s: best, you: true });
+    rows.sort(function (a, b) { return b.s - a.s || (a.you ? -1 : 1); });
+    rows = rows.slice(0, 8);
+    var html = '';
+    rows.forEach(function (r, i) {
+      html += '<tr' + (r.you ? ' class="you"' : '') + '><td>' + (i + 1) + '</td><td>' + r.n + '</td><td class="num">' + r.s + '</td></tr>';
+    });
+    document.getElementById('board-rows').innerHTML = html;
+  }
+  renderScores();
+
+  /* ---------- Game shelf ---------- */
+  function art(kind, c1, c2) {
+    var s = '<svg viewBox="0 0 200 110" role="img" aria-hidden="true"><rect width="200" height="110" fill="' + c1 + '"/>';
+    var i;
+    if (kind === 'stripes') {
+      for (i = 0; i < 8; i++) s += '<rect x="' + (i * 32 - 20) + '" y="0" width="12" height="110" fill="' + c2 + '" transform="skewX(-20)"/>';
+    } else if (kind === 'circles') {
+      for (i = 0; i < 5; i++) s += '<circle cx="' + (20 + i * 40) + '" cy="' + (i % 2 ? 40 : 70) + '" r="' + (14 + (i % 3) * 6) + '" fill="' + c2 + '"/>';
+    } else if (kind === 'triangles') {
+      for (i = 0; i < 5; i++) s += '<polygon points="' + (i * 44) + ',110 ' + (i * 44 + 22) + ',' + (30 + (i % 2) * 20) + ' ' + (i * 44 + 44) + ',110" fill="' + c2 + '"/>';
+    } else if (kind === 'grid') {
+      for (var x = 0; x < 8; x++) for (var y = 0; y < 4; y++) if ((x + y) % 2 === 0) s += '<rect x="' + (x * 25) + '" y="' + (y * 27.5) + '" width="25" height="27.5" fill="' + c2 + '"/>';
+    } else if (kind === 'bricks') {
+      for (var r = 0; r < 5; r++) for (var k = 0; k < 5; k++) s += '<rect x="' + (k * 42 - (r % 2) * 21 + 2) + '" y="' + (r * 22 + 2) + '" width="38" height="18" fill="' + c2 + '"/>';
+    } else {
+      for (i = 0; i < 4; i++) s += '<path d="M0 ' + (25 + i * 24) + ' Q 25 ' + (5 + i * 24) + ' 50 ' + (25 + i * 24) + ' T 100 ' + (25 + i * 24) + ' T 150 ' + (25 + i * 24) + ' T 200 ' + (25 + i * 24) + '" stroke="' + c2 + '" stroke-width="7" fill="none"/>';
+    }
+    return s + '</svg>';
+  }
+
+  var GAMES = [
+    { id: 'gravel', name: 'Gravel Rally', genre: 'Racing', min: 1, max: 2, mins: 4, blurb: 'Eight dirt tracks, one handbrake, and a split screen for settling arguments.', kind: 'stripes', c1: '#a8321a', c2: '#ff9a3c' },
+    { id: 'moth', name: 'Moth & Lantern', genre: 'Puzzle', min: 1, max: 1, mins: 10, blurb: 'Guide a moth through dark rooms by swinging lanterns to light the way.', kind: 'circles', c1: '#1e3a5f', c2: '#ffd23f' },
+    { id: 'brick', name: 'Brickyard Brawl', genre: 'Fighting', min: 2, max: 2, mins: 3, blurb: 'Two builders, one half-finished wall, and a lot of loose bricks.', kind: 'bricks', c1: '#5a2a22', c2: '#c4552f' },
+    { id: 'orbit', name: 'Orbit Janitor', genre: 'Arcade', min: 1, max: 1, mins: 6, blurb: 'Sweep space junk into the bin before the station spins out of control.', kind: 'triangles', c1: '#10343a', c2: '#4be3a0' },
+    { id: 'crypt', name: 'Crypt Courier', genre: 'Adventure', min: 1, max: 1, mins: 25, blurb: 'Deliver parcels to very grumpy skeletons before the sun comes up.', kind: 'grid', c1: '#2b2140', c2: '#5b4a85' },
+    { id: 'bakery', name: 'Pocket Bakery Wars', genre: 'Strategy', min: 1, max: 4, mins: 15, blurb: 'Out-bake rival shops with a tiny oven, a loud sign and a secret recipe.', kind: 'waves', c1: '#6b3b1d', c2: '#f3c27b' }
+  ];
+
+  var wish = load('lca-wish', {});
+  if (!wish || typeof wish !== 'object') wish = {};
+  var filter = 'all';
+  var grid = document.getElementById('grid');
+
+  function players(g) { return g.min === g.max ? g.min + ' player' + (g.min > 1 ? 's' : '') : g.min + '–' + g.max + ' players'; }
+
+  function renderGrid() {
+    var list = GAMES.filter(function (g) {
+      if (filter === 'solo') return g.min === 1;
+      if (filter === 'multi') return g.max >= 2;
+      return true;
+    });
+    if (!list.length) { grid.innerHTML = '<p class="empty">No games match that filter.</p>'; return; }
+    grid.innerHTML = list.map(function (g) {
+      var on = !!wish[g.id];
+      return '<article class="card">' + art(g.kind, g.c1, g.c2) +
+        '<div class="card-body"><h3>' + g.name + '</h3>' +
+        '<div class="meta"><span>' + g.genre + '</span><span>' + players(g) + '</span><span>~' + g.mins + ' min</span></div>' +
+        '<p>' + g.blurb + '</p>' +
+        '<div class="card-foot"><span class="tag">Coming soon</span>' +
+        '<button class="wish" type="button" data-id="' + g.id + '" aria-pressed="' + on + '">' + (on ? 'On your wishlist' : 'Add to wishlist') + '</button></div></div></article>';
+    }).join('');
+  }
+
+  grid.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.wish') : null;
+    if (!b) return;
+    var id = b.getAttribute('data-id');
+    wish[id] = !wish[id];
+    save('lca-wish', wish);
+    var on = !!wish[id];
+    b.setAttribute('aria-pressed', on);
+    b.textContent = on ? 'On your wishlist' : 'Add to wishlist';
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) {
+    c.addEventListener('click', function () {
+      filter = c.getAttribute('data-filter');
+      Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (o) {
+        o.setAttribute('aria-pressed', o === c ? 'true' : 'false');
+      });
+      renderGrid();
+    });
+  });
+
+  renderGrid();
+})();
+</script>
+</body>
+</html>
